@@ -3,11 +3,14 @@
   "id": "automob",
   "version": "${version}",
   "name": "AutoMob",
-  "description": "",
-  "authors": [],
-  "contact": {},
+  "description": "Experimental server-side Fabric mod exploring adaptive AI-controlled mobs for Minecraft.",
+  "authors": [
+    "Léo Corvaisier-Palluy"
+  ],
+  "contact": {
+    "sources": "https://github.com/leocorv/AutoMob"
+  },
   "license": "All-Rights-Reserved",
-  "icon": "assets/automob/icon.png",
   "environment": "server",
   "entrypoints": {
     "main": [
