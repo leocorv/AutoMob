@@ -3,6 +3,7 @@ package org.nerix.automob;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 
 public final class DamageHooks {
@@ -12,21 +13,27 @@ public final class DamageHooks {
             onDamage(entity, source, amount);
             return true; // ne bloque pas le dégât
         });
+
         // après la mort
         ServerLivingEntityEvents.AFTER_DEATH.register(DamageHooks::onDeath);
+    }
+
+    private static MobEntity controlledAttacker(DamageSource source) {
+        if (source.getAttacker() instanceof MobEntity mob
+                && ControlledMobRegistry.get().isControlled(mob)) {
+            return mob;
+        }
+        return null;
     }
 
     private static void onDamage(LivingEntity target, DamageSource src, float amount) {
         if (target.getWorld().isClient()) return;
 
-        if (target instanceof ServerPlayerEntity) {
-            // amount ~ demi-coeurs (1 coeur = 2.0)
+        // Les statistiques AutoMob ne doivent prendre en compte que les dégâts
+        // infligés par un mob réellement enregistré comme contrôlé.
+        if (target instanceof ServerPlayerEntity && controlledAttacker(src) != null) {
             LiveStats.get().addPlayerDamage(amount);
-            LiveStats.get().addReward(+1.0 * amount); // shaping local
-            // TODO gRPC: attribuer la reward exacte au bon agent (mob) côté backend
-        } else {
-            // TODO si mob "contrôlé", pénalité locale légère si tu veux
-            // LiveStats.get().addReward(-0.5 * amount);
+            LiveStats.get().addReward(amount);
         }
     }
 
@@ -34,11 +41,16 @@ public final class DamageHooks {
         if (entity.getWorld().isClient()) return;
 
         if (entity instanceof ServerPlayerEntity) {
-            LiveStats.get().addReward(+50.0);
-            LiveStats.get().incAgentKill();
-            // TODO gRPC: reward kill au mob agent impliqué
-        } else {
+            if (controlledAttacker(src) != null) {
+                LiveStats.get().addReward(50.0);
+                LiveStats.get().incAgentKill();
+            }
+            return;
+        }
+
+        if (entity instanceof MobEntity mob && ControlledMobRegistry.get().isControlled(mob)) {
             LiveStats.get().incAgentDeath();
+            ControlledMobRegistry.get().unregister(mob);
         }
     }
 }
