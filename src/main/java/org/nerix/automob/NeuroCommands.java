@@ -20,8 +20,9 @@ public final class NeuroCommands {
                         }))
                 .then(CommandManager.literal("reset")
                         .executes(ctx -> {
-                            // TODO: reset fin si besoin (backend + compteurs)
-                            ctx.getSource().sendFeedback(() -> Text.literal("[AutoMob] reset requested"), false);
+                            LiveStats.get().reset();
+                            ctx.getSource().sendFeedback(
+                                    () -> Text.literal("[AutoMob] local stats reset."), false);
                             return 1;
                         }))
         );
