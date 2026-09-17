@@ -1,152 +1,138 @@
+# AutoMob
 
+> Experimental adaptive mob AI for Minecraft, built as a playground for reinforcement-learning concepts.
 
+## Project status
 
-# 🧠 AutoMob
+**Paused experimental prototype.**
 
-> Adaptive AI mobs for Minecraft – built for live learning.
+I have not worked on AutoMob for a while and the project is **not currently considered functional or maintained**. The repository is published as a technical experiment and as a record of the architecture explored around adaptive Minecraft entities.
 
-AutoMob est un mod **Fabric (serveur uniquement)** pour **Minecraft 1.21.4 (Java 21)**.  
-Il fait apparaître et contrôle des mobs à l’aide d’un système d’**apprentissage par renforcement en direct (RL)**.
+Do not expect the current codebase to work out of the box without fixes or dependency/version adjustments.
 
----
+AutoMob is **not** a finished reinforcement-learning system. The current repository mainly contains the Minecraft/Fabric-side foundations: controlled mobs, feature extraction, reward/stat tracking and a policy abstraction. The external learning backend described below was planned but is not implemented in this version.
 
-## ⚙️ Fonctionnalités principales
+## What is in the repository
 
-- Spawns automatiques de mobs “IA” autour des joueurs.
-- Difficulté dynamique selon les performances du joueur.
-- Système de *reward shaping* : dégâts, kills, survie, inactivité, etc.
-- Commande `/neuro stats` pour suivre les stats en live :
+AutoMob is a **server-side Fabric mod** targeting **Minecraft 1.21.4 / Java 21**.
+
+Current prototype components include:
+
+- controlled mob spawning around players;
+- basic adaptive spawning logic;
+- extraction of gameplay/world features;
+- reward-oriented statistics for damage, kills, survival and inactivity;
+- live metrics exposed through `/neuro stats`;
+- a `Policy` abstraction for future AI decision engines;
+- a local `DummyPolicy` used as the current placeholder decision system.
+
+## Current architecture
+
+```text
+Minecraft Server (Fabric)
+        |
+        +--> ControlledSpawner
+        |
+        +--> FeatureExtractor
+        |
+        +--> LiveStats / reward signals
+        |
+        +--> Policy
+              |
+              +--> DummyPolicy (current prototype)
 ```
 
-[AutoMob] RPM=2.45 | DPM=0.53 | K/D=6/8
+The longer-term architecture I was exploring was:
 
+```text
+Minecraft Server (Fabric)
+        |
+        +--> Feature extraction
+        |
+        +--> External Python learning backend
+        |       |
+        |       +--> training / inference
+        |
+        +<-- predicted action
+        |
+        +--> action applied to the controlled mob
 ```
 
----
+The Python/gRPC learning backend is **not part of the current working implementation**.
 
-## 🧩 Structure du projet
+## Main classes
 
-```
-
+```text
 src/main/java/org/nerix/automob/
-├─ Automob.java               → Entrypoint principal
-├─ ControlledSpawner.java     → Spawn adaptatif des mobs
-├─ ControllerTick.java        → Application des actions IA
-├─ FeatureExtractor.java      → Extraction des features du monde
-├─ LiveStats.java             → Statistiques et rewards
-├─ DamageHooks.java           → Gestion des dégâts & rewards
-├─ Policy.java / DummyPolicy  → Interface de décision IA
-└─ ControlledMobRegistry.java → Liste des mobs IA actifs
+├── Automob.java
+├── ControlledSpawner.java
+├── ControlledMobRegistry.java
+├── ControllerTick.java
+├── FeatureExtractor.java
+├── LiveStats.java
+├── DamageHooks.java
+├── Policy.java
+├── DummyPolicy.java
+└── NeuroCommands.java
+```
 
-````
+## Reward experimentation
 
----
+The project contains early reward-shaping ideas based on gameplay events such as:
 
-## 🧮 Système de Rewards (exemple)
+- damage dealt to players;
+- player kills;
+- assists;
+- damage received;
+- inactivity;
+- difficulty/progression phases.
 
-| Action                    | Reward  |
-|---------------------------|----------|
-| Dégâts au joueur (½ cœur) | +1       |
-| Kill du joueur            | +50      |
-| Assist (>20% dmg)         | +10      |
-| Dégâts subis              | −0.5     |
-| Inactivité                | −0.01    |
-| Multiplicateur de phase   | × (1 + 0.25 × phase) |
+These values are experimental and should not be interpreted as a tuned or validated RL reward model.
 
----
+## Build
 
-## 🏗️ Build & Lancement
+Prerequisites used during development:
 
-### Prérequis
-- **Java 21**
-- **Gradle** (wrapper inclus)
-- **Minecraft 1.21.4**
-- **Fabric API**
+- Java 21
+- Minecraft 1.21.4
+- Fabric Loader / Fabric API
+- Gradle wrapper included in the repository
 
-### Build le mod
 ```bash
 ./gradlew build
-````
+```
 
-→ JAR dispo dans `build/libs/`
-
-### Lancer un serveur local
+A local development server can normally be launched through Fabric Loom with:
 
 ```bash
 ./gradlew runServer
 ```
 
----
+Because the project is currently paused, compatibility with the latest dependency versions is **not guaranteed**.
 
-## 📜 Commandes disponibles
+## Original roadmap
 
-| Commande       | Description                            |
-| -------------- | -------------------------------------- |
-| `/neuro stats` | Affiche les métriques IA en temps réel |
-| `/neuro reset` | Réinitialise les stats locales         |
+- [x] Controlled mob spawning
+- [x] Gameplay feature extraction
+- [x] Live statistics / reward signals
+- [x] Policy abstraction
+- [x] Placeholder local policy
+- [ ] External Python inference backend
+- [ ] gRPC communication
+- [ ] PPO/DQN or another learning algorithm
+- [ ] Persistent training pipeline
+- [ ] AI-vs-AI experimentation
+- [ ] Proper testing and production-ready balancing
 
----
+## Why this repository is public
 
-## 🧠 Vision du projet
+AutoMob is mainly a personal experiment around the intersection of **Minecraft modding, game telemetry and machine learning**. It is public to document the approach and the code explored, not as a ready-to-install mod.
 
-L’objectif est de créer une IA Minecraft **vivante et évolutive**, capable d’apprendre de ses erreurs,
-d’analyser les comportements des joueurs, et d’adapter sa stratégie au fil du temps.
+## License
 
-### Architecture prévue :
+All Rights Reserved.
 
-```
-Minecraft Server (Fabric)
-│
-├─ Collecte de données → FeatureExtractor
-│
-├─ Transmission → Backend Python (gRPC)
-│
-├─ Prédiction d’action ← Policy / NeuroClient
-│
-└─ Application en jeu → ControllerTick
-```
+## Author
 
----
-
-## 🧰 Stack technique
-
-| Élément       | Version | Description                          |
-| ------------- | ------- | ------------------------------------ |
-| Minecraft     | 1.21.4  | Base du serveur                      |
-| Fabric Loader | 0.17.3  | Gestion du mod                       |
-| Fabric API    | 0.119.4 | Outils serveurs                      |
-| Yarn Mappings | build.8 | Mappings 1.21.4                      |
-| Java          | 21      | Support moderne (records, var, etc.) |
-
----
-
-## 🧩 Roadmap
-
-* [x] Système de spawn adaptatif
-* [x] Suivi live des stats / rewards
-* [x] Policy locale (Dummy)
-* [ ] gRPC ↔ backend Python
-* [ ] Entraînement PPO/DQN
-* [ ] Interface visuelle IA
-* [ ] Mode “AI vs AI”
-
----
-
-## 📜 Licence
-
-`All Rights Reserved`
-Projet privé – utilisation ou redistribution non autorisée sans permission explicite.
-
----
-
-## 👤 Auteur
-
-**Leo Corvaisier-Palluy**
-Développeur Minecraft & Machine Learning – 🇫🇷 France
-🔗 [github.com/leocorv](https://github.com/leocorv)
-
-> “The goal isn’t to make smarter mobs, it’s to make the world fight back.”
-
-```
-
-
+**Léo Corvaisier-Palluy (Nerix)**  
+GitHub: [leocorv](https://github.com/leocorv)
