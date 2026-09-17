@@ -36,7 +36,7 @@ public final class ControlledSpawner {
 
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
             int want = base + extra;
-            int have = countNearMobs(world, p, 48);
+            int have = countNearControlledMobs(world, p, 48);
             int toSpawn = Math.max(0, want - have);
 
             for (int i = 0; i < toSpawn; i++) {
@@ -53,9 +53,13 @@ public final class ControlledSpawner {
         }
     }
 
-    private int countNearMobs(World world, ServerPlayerEntity p, int radius) {
+    private int countNearControlledMobs(World world, ServerPlayerEntity p, int radius) {
         Box box = Box.from(p.getPos()).expand(radius);
-        return world.getEntitiesByClass(MobEntity.class, box, e -> true).size();
+        return world.getEntitiesByClass(
+                MobEntity.class,
+                box,
+                ControlledMobRegistry.get()::isControlled
+        ).size();
     }
 
     private BlockPos pickSpawnPosRing(World world, BlockPos center) {
