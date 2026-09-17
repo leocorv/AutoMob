@@ -27,6 +27,13 @@ public final class LiveStats {
     public void incAgentKill()  { agentKills++; }
     public void incAgentDeath() { agentDeaths++; }
 
+    public void reset() {
+        rewardPerMin = 0.0;
+        dmgToPlayerPerMin = 0.0;
+        agentKills = 0;
+        agentDeaths = 0;
+    }
+
     public double rpm() { return rewardPerMin; }
     public double dpm() { return dmgToPlayerPerMin; }
     public int k() { return agentKills; }
