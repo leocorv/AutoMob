@@ -3,14 +3,14 @@
   "id": "automob",
   "version": "${version}",
   "name": "AutoMob",
-  "description": "Experimental server-side Fabric mod exploring adaptive AI-controlled mobs for Minecraft.",
+  "description": "Experimental multi-agent AI sandbox and decision-harness prototype for Minecraft.",
   "authors": [
     "Léo Corvaisier-Palluy"
   ],
   "contact": {
     "sources": "https://github.com/leocorv/AutoMob"
   },
-  "license": "All-Rights-Reserved",
+  "license": "MIT",
   "environment": "server",
   "entrypoints": {
     "main": [

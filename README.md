@@ -1,138 +1,138 @@
-# AutoMob
+# 🧠 AutoMob — Adaptive Multi-Agent AI Sandbox & Decision Harness
 
-> Experimental adaptive mob AI for Minecraft, built as a playground for reinforcement-learning concepts.
+[![Minecraft](https://img.shields.io/badge/Minecraft-1.21.4-success.svg)](https://fabricmc.net/)
+[![Mod Loader](https://img.shields.io/badge/Mod%20Loader-Fabric-blue.svg)](https://fabricmc.net/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.txt)
+[![Status](https://img.shields.io/badge/Status-Experimental%20prototype-orange.svg)](#project-status)
+
+**AutoMob** is an open-source, server-side Minecraft prototype exploring adaptive mob AI and real-time decision harnesses. Built with **Fabric 1.21.4 and Java 21**, it provides early foundations for observing entities, selecting actions and collecting combat-related signals.
+
+The research direction is to turn Minecraft into an accessible **multi-agent testbed**: compare local policies, study combat and evasion, and evaluate coordination under server tick constraints. A modular **Agent Harness** would connect those experiments to external learning backends and optional **Model Context Protocol (MCP)** supervision.
 
 ## Project status
 
-**Paused experimental prototype.**
+**Experimental prototype — not yet a validated learning system or ready-to-install mod.** The current implementation uses `DummyPolicy`, which moves mobs toward a nearby player with small random perturbations. Learned combat, adaptive evasion, swarm coordination, the external harness and MCP integration remain roadmap items. Attacks and shooting are not yet wired into the policy controller.
 
-I have not worked on AutoMob for a while and the project is **not currently considered functional or maintained**. The repository is published as a technical experiment and as a record of the architecture explored around adaptive Minecraft entities.
+## What exists today
 
-Do not expect the current codebase to work out of the box without fixes or dependency/version adjustments.
+| Component | Current implementation |
+| --- | --- |
+| Controlled entities | Skeleton spawning around players in the Overworld and a registry of controlled mob IDs. |
+| Spawn pressure | A rule adjusts the desired local mob count using the prototype damage statistic. |
+| Sensors | A 16-value feature vector covering relative direction and distance, velocities, health, relative yaw and offsets. |
+| Policy interface | `Policy` and `Action` separate action selection from movement application; `DummyPolicy` is the only implementation. |
+| Movement | `ControllerTick` sends movement requests through Minecraft's pathfinder. |
+| Combat signals | Hooks track damage attempts and kills attributed to registered mobs, plus controlled-mob deaths. |
+| Operator commands | `/neuro stats` displays local metrics; `/neuro reset` clears those counters. Both require permission level 2. |
 
-AutoMob is **not** a finished reinforcement-learning system. The current repository mainly contains the Minecraft/Fabric-side foundations: controlled mobs, feature extraction, reward/stat tracking and a policy abstraction. The external learning backend described below was planned but is not implemented in this version.
+The reward statistics are experimental: damage is observed before application through `ALLOW_DAMAGE`, and RPM/DPM are event-based estimates rather than validated rolling per-minute measurements. These signals do not currently train a model.
 
-## What is in the repository
+## Architecture
 
-AutoMob is a **server-side Fabric mod** targeting **Minecraft 1.21.4 / Java 21**.
+### Current Java/Fabric prototype
 
-Current prototype components include:
-
-- controlled mob spawning around players;
-- basic adaptive spawning logic;
-- extraction of gameplay/world features;
-- reward-oriented statistics for damage, kills, survival and inactivity;
-- live metrics exposed through `/neuro stats`;
-- a `Policy` abstraction for future AI decision engines;
-- a local `DummyPolicy` used as the current placeholder decision system.
-
-## Current architecture
-
-```text
-Minecraft Server (Fabric)
-        |
-        +--> ControlledSpawner
-        |
-        +--> FeatureExtractor
-        |
-        +--> LiveStats / reward signals
-        |
-        +--> Policy
-              |
-              +--> DummyPolicy (current prototype)
+```mermaid
+flowchart TD
+    T["Server tick hook"] --> S["Controlled spawner and registry"]
+    T --> C["ControllerTick"]
+    S --> C
+    C --> F["FeatureExtractor"]
+    F --> P["DummyPolicy"]
+    P --> N["Minecraft navigation"]
+    D["Damage and death hooks"] --> M["LiveStats and operator commands"]
+    M --> S
 ```
 
-The longer-term architecture I was exploring was:
+All current policy calls run locally on the server thread.
 
-```text
-Minecraft Server (Fabric)
-        |
-        +--> Feature extraction
-        |
-        +--> External Python learning backend
-        |       |
-        |       +--> training / inference
-        |
-        +<-- predicted action
-        |
-        +--> action applied to the controlled mob
+### Planned harness integration
+
+```mermaid
+flowchart TD
+    J["Java sensors"] --> B["Asynchronous bridge"]
+    B --> P["Local Python learning policy"]
+    B --> H["High-level harness and MCP tools"]
+    P --> V["Action validation and fallback"]
+    H --> V
+    V --> C["Java entity controller"]
+    C --> J
 ```
 
-The Python/gRPC learning backend is **not part of the current working implementation**.
+The intended split is between frequent local control decisions and slower strategic supervision. A future LLM coordinator would inspect snapshots or propose bounded directives outside the tick loop. Minecraft's main thread must never wait for a model response.
 
-## Main classes
+Design targets:
 
-```text
-src/main/java/org/nerix/automob/
-├── Automob.java
-├── ControlledSpawner.java
-├── ControlledMobRegistry.java
-├── ControllerTick.java
-├── FeatureExtractor.java
-├── LiveStats.java
-├── DamageHooks.java
-├── Policy.java
-├── DummyPolicy.java
-└── NeuroCommands.java
-```
+- **Bounded execution:** validate actions, limit queues and discard stale decisions. At 20 TPS, the whole server tick has approximately 50 ms; this is not a budget reserved for AutoMob or a measured performance guarantee.
+- **Local learning:** explore a Python/PyTorch PPO backend over asynchronous gRPC/Protobuf, with explicit transitions and rewards attributed to each agent.
+- **Harness interoperability:** add structured telemetry and a JSON/WebSocket interface for inspection, replay and external orchestration.
+- **MCP supervision:** expose selected world state, experiment settings and bounded strategic directives through an optional MCP server.
+- **Graceful degradation:** implement vanilla fallback when the backend is unavailable, responses are stale or server TPS falls below the configured threshold.
+- **Reproducible evaluation:** record seeds, policy versions, latency distributions and task outcomes. Deterministic action validation is a design goal, not a claim that the Minecraft simulation or current randomized policy is deterministic.
 
-## Reward experimentation
+## Hardware target
 
-The project contains early reward-shaping ideas based on gameplay events such as:
+The planned local learning backend targets a **GeForce RTX 2080 as the minimum reference GPU**. Model size, batch size, agent count and memory usage will be benchmarked on that hardware before publishing performance claims.
 
-- damage dealt to players;
-- player kills;
-- assists;
-- damage received;
-- inactivity;
-- difficulty/progression phases.
+The current Java prototype does not use CUDA or require a GPU for inference. Training and checkpoint persistence are future backend work.
 
-These values are experimental and should not be interpreted as a tuned or validated RL reward model.
+## Roadmap
 
-## Build
+Checked items describe code present in the repository, not end-to-end validation.
 
-Prerequisites used during development:
+- [x] Fabric server tick hooks, controlled spawning and mob registry.
+- [x] Gameplay feature extraction and a local policy abstraction.
+- [x] Placeholder movement policy and navigation application.
+- [x] Initial combat statistics and operator commands.
+- [ ] Re-establish a reproducible build and server smoke test.
+- [ ] Correct reward accounting, time-based metrics and registry lifecycle handling.
+- [ ] Connect policy-driven attacks; implement and evaluate combat spacing and evasion.
+- [ ] Add asynchronous Java/Python communication, bounded action validation and vanilla fallback.
+- [ ] Implement PPO training, checkpoint persistence and RTX 2080 benchmarks.
+- [ ] Add structured JSON/WebSocket telemetry for external Agent Harnesses.
+- [ ] Build an optional MCP server for world-state inspection and tactical supervision.
+- [ ] Implement and evaluate shared threat state, flanking and coordinated retreats.
+- [ ] Publish a benchmark suite comparing latency, resource usage and tactical outcomes against baseline policies.
 
-- Java 21
-- Minecraft 1.21.4
-- Fabric Loader / Fabric API
-- Gradle wrapper included in the repository
+## Installation and development
+
+### Prerequisites
+
+- **JDK 21** and Git.
+- **Minecraft 1.21.4**, **Fabric Loader 0.17.3** and **Fabric API 0.119.4+1.21.4** for the target server.
+- The Gradle wrapper is included; dependency versions are defined in `gradle.properties`.
+
+### Build from source
 
 ```bash
-./gradlew build
+git clone https://github.com/leocorv/AutoMob.git
+cd AutoMob
+bash ./gradlew build
 ```
 
-A local development server can normally be launched through Fabric Loom with:
+On Windows PowerShell, use `./gradlew.bat build` after cloning and entering the repository.
 
-```bash
-./gradlew runServer
-```
+A successful build writes the mod JAR to `build/libs/`. For an experimental deployment, place the main mod JAR and the matching Fabric API JAR in the Fabric server's `mods/` directory. AutoMob is server-side; clients do not need to install it.
 
-Because the project is currently paused, compatibility with the latest dependency versions is **not guaranteed**.
+For a development server, use `bash ./gradlew runServer` (or `./gradlew.bat runServer` on Windows) and follow Minecraft's EULA prompt. Build and gameplay validation still need to be completed; use a disposable test world.
 
-## Original roadmap
+### Source map
 
-- [x] Controlled mob spawning
-- [x] Gameplay feature extraction
-- [x] Live statistics / reward signals
-- [x] Policy abstraction
-- [x] Placeholder local policy
-- [ ] External Python inference backend
-- [ ] gRPC communication
-- [ ] PPO/DQN or another learning algorithm
-- [ ] Persistent training pipeline
-- [ ] AI-vs-AI experimentation
-- [ ] Proper testing and production-ready balancing
+| File | Responsibility |
+| --- | --- |
+| [Automob.java](src/main/java/org/nerix/automob/Automob.java) | Registers tick, command and combat-event hooks. |
+| [ControlledSpawner.java](src/main/java/org/nerix/automob/ControlledSpawner.java) | Spawn placement and rule-based mob count. |
+| [ControlledMobRegistry.java](src/main/java/org/nerix/automob/ControlledMobRegistry.java) | Tracks controlled mob identifiers. |
+| [FeatureExtractor.java](src/main/java/org/nerix/automob/FeatureExtractor.java) | Selects a target and constructs observations. |
+| [Policy.java](src/main/java/org/nerix/automob/Policy.java), [Action.java](src/main/java/org/nerix/automob/Action.java), [DummyPolicy.java](src/main/java/org/nerix/automob/DummyPolicy.java) | Policy contract, action representation and placeholder policy. |
+| [ControllerTick.java](src/main/java/org/nerix/automob/ControllerTick.java) | Applies movement decisions. |
+| [DamageHooks.java](src/main/java/org/nerix/automob/DamageHooks.java), [LiveStats.java](src/main/java/org/nerix/automob/LiveStats.java), [NeuroCommands.java](src/main/java/org/nerix/automob/NeuroCommands.java) | Experimental combat signals and operator feedback. |
 
-## Why this repository is public
+## Contributing
 
-AutoMob is mainly a personal experiment around the intersection of **Minecraft modding, game telemetry and machine learning**. It is public to document the approach and the code explored, not as a ready-to-install mod.
+Contributions are welcome around build reproducibility, telemetry correctness, bounded asynchronous control and benchmark design. Please distinguish measured results from intended behavior and include reproducible steps for bug reports and performance claims.
 
 ## License
 
-All Rights Reserved.
+AutoMob's source code is released under the [MIT License](LICENSE.txt). Minecraft and third-party dependencies remain subject to their own licenses and terms.
 
-## Author
-
-**Léo Corvaisier-Palluy (Nerix)**  
-GitHub: [leocorv](https://github.com/leocorv)
+Created by **[Léo Corvaisier-Palluy (Nerix / leocorv)](https://github.com/leocorv)**.
